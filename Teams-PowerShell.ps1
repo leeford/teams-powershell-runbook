@@ -6,10 +6,13 @@ $teamsAdminScopes = "48ac35b8-9aa8-4d74-927d-1f4a14a0b239/user_impersonation"
 # Get a token by signing in with a device code
 function Get-TokenWithDeviceCode {
     param (
-        [Parameter(Mandatory = $true)][string]$scopes
+        [Parameter(Mandatory = $true)][string]$scopes,
+        [Parameter(Mandatory = $true)][string]$resourceName
     )
 
     try {
+        Write-Host "-----`n`rPlease sign in for $($resourceName) `n`r-----"
+
         # Get Device Code for all scopes with consent link
         $codeBody = @{ 
             client_id = $clientId
@@ -43,7 +46,6 @@ function Get-TokenWithDeviceCode {
         if ($tokenRequest.refresh_token) {
             Set-AutomationVariable -Name "refreshToken" -Value $tokenRequest.refresh_token
         }
-        Write-Host "Refresh token stored, please re-run the script"   
     }
     catch {
         Write-Host "Error getting token: $($_.Exception.Message)"
@@ -70,10 +72,16 @@ function Get-TokenWithRefreshToken {
     catch {
         # Perhaps refresh token expired, get new token and try again
         Write-Host "Error getting token: $($_.Exception.Message)"
-        Write-Host "Getting new token with device code due to error"
-        Get-TokenWithDeviceCode $graphScopes
+        Write-Host "Getting new tokens with device codes due to error"
+        Get-NewRefreshTokens
         exit 1
     }
+}
+
+function Get-NewRefreshTokens {
+    Get-TokenWithDeviceCode $teamsAdminScopes "Microsoft Teams Admin"
+    Get-TokenWithDeviceCode $graphScopes "Microsoft Graph"
+    Write-Host "Refresh token stored, please re-run the script"
 }
 
 # Get existing refresh token
@@ -96,6 +104,7 @@ if ($refreshToken) {
     Get-CsOnlineUser | Format-Table DisplayName, UserPrincipalName
 }
 else {
-    Write-Host "No refresh token found, obtaining token with device code"
-    Get-TokenWithDeviceCode $graphScopes
+    Write-Host "No refresh token found, obtaining tokens with device codes"
+    Get-NewRefreshTokens
+    exit 1
 }
